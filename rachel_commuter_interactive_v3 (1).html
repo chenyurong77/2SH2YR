@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Rachel's Smart Commute</title>
+
+<style>
+  * { box-sizing: border-box; }
+
+  :root{
+    --navy:#173b73;
+    --bg:#f4f7fb;
+    --text:#1f2937;
+    --muted:#667085;
+    --border:#e5e7eb;
+    --green:#22a06b;
+    --green-dark:#147a42;
+    --green-soft:#e7f7ed;
+    --red:#d92d20;
+    --red-dark:#b42318;
+    --red-soft:#fff0ef;
+    --blue:#2463eb;
+    --rail:#4fa66a;
+  }
+
+  body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+
+  button { font: inherit; }
+
+  .app {
+    max-width: 470px;
+    margin: 0 auto;
+    min-height: 100vh;
+    background: white;
+    padding-bottom: 32px;
+  }
+
+  .header {
+    background: var(--navy);
+    color: white;
+    padding: 22px 18px 18px;
+  }
+
+  .header small {
+    opacity: .82;
+    font-size: 12px;
+  }
+
+  .header h1 {
+    margin: 6px 0 0;
+    font-size: 23px;
+  }
+
+  .controls {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    padding: 14px 16px 0;
+  }
+
+  .controls button,
+  .reverse-btn,
+  .scroll-btn {
+    min-height: 44px;
+    border: none;
+    border-radius: 11px;
+    font-weight: bold;
+    cursor: pointer;
+  }
+
+  .controls button {
+    background: #e8edf5;
+    color: #344054;
+  }
+
+  .controls button.active {
+    background: var(--navy);
+    color: white;
+  }
+
+  .reverse-wrap {
+    padding: 8px 16px 0;
+  }
+
+  .reverse-btn {
+    width: 100%;
+    border: 1px solid #cfd8e6;
+    background: white;
+    color: var(--navy);
+  }
+
+  .card {
+    margin: 14px 16px;
+    padding: 16px;
+    border-radius: 16px;
+    background: white;
+    border: 1px solid var(--border);
+    box-shadow: 0 4px 14px rgba(0,0,0,.05);
+  }
+
+  .status {
+    display: flex;
+    justify-content: space-between;
+    align-items: start;
+    gap: 10px;
+  }
+
+  .status h2 {
+    margin: 0;
+    font-size: 20px;
+  }
+
+  .badge {
+    border-radius: 999px;
+    padding: 6px 10px;
+    font-size: 11px;
+    font-weight: bold;
+    white-space: nowrap;
+  }
+
+  .badge.normal {
+    background: var(--green-soft);
+    color: var(--green-dark);
+  }
+
+  .badge.alert {
+    background: #feeceb;
+    color: var(--red-dark);
+  }
+
+  .summary-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 14px;
+  }
+
+  .metric {
+    background: #f8fafc;
+    border-radius: 12px;
+    padding: 11px;
+  }
+
+  .metric span {
+    display: block;
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 3px;
+  }
+
+  .metric strong { font-size: 16px; }
+
+  .action {
+    margin-top: 12px;
+    padding: 12px;
+    border-radius: 12px;
+    background: var(--green-soft);
+    color: var(--green-dark);
+    font-weight: bold;
+    line-height: 1.4;
+  }
+
+  .action.alert {
+    background: var(--red-soft);
+    color: var(--red-dark);
+  }
+
+  .section-title {
+    font-size: 13px;
+    font-weight: bold;
+    color: #475467;
+    margin-bottom: 10px;
+    letter-spacing: .02em;
+  }
+
+  /* COMMUTE MAP */
+  .map-box {
+    background: #eef3f8;
+    border-radius: 14px;
+    padding: 12px;
+  }
+
+  .map-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .map-title {
+    font-size: 12px;
+    color: var(--muted);
+    margin: 0;
+    flex: 1;
+  }
+
+  .scroll-controls {
+    display: flex;
+    gap: 6px;
+  }
+
+  .scroll-btn {
+    min-width: 42px;
+    height: 42px;
+    background: white;
+    border: 1px solid #cbd5e1;
+    color: var(--navy);
+    font-size: 18px;
+    line-height: 1;
+  }
+
+  .scroll-hint {
+    font-size: 11px;
+    color: #667085;
+    margin: 4px 0 8px;
+  }
+
+  .rail-scroll {
+    width: 100%;
+    overflow-x: scroll !important;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: auto;
+    scrollbar-color: #7f8b9a #d9e1ea;
+    border-radius: 10px;
+    background: white;
+    border: 1px solid #d9e1ea;
+    padding: 16px 8px 12px;
+  }
+
+  .rail-scroll::-webkit-scrollbar {
+    height: 14px;
+  }
+
+  .rail-scroll::-webkit-scrollbar-track {
+    background: #d9e1ea;
+    border-radius: 999px;
+  }
+
+  .rail-scroll::-webkit-scrollbar-thumb {
+    background: #7f8b9a;
+    border-radius: 999px;
+    border: 2px solid #d9e1ea;
+  }
+
+  .rail-scroll::-webkit-scrollbar-thumb:hover {
+    background: #5f6b7a;
+  }
+
+  .rail {
+    display: flex;
+    align-items: flex-start;
+    width: max-content;
+    min-width: 1750px;
+    padding: 4px 0 10px;
+  }
+
+  .station-block {
+    width: 94px;
+    flex: 0 0 94px;
+    text-align: center;
+    position: relative;
+  }
+
+  .station-row {
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .station-dot {
+    width: 19px;
+    height: 19px;
+    border-radius: 50%;
+    background: white;
+    border: 4px solid var(--rail);
+    position: relative;
+    z-index: 3;
+  }
+
+  .station-dot.affected {
+    border-color: var(--red);
+  }
+
+  .station-name {
+    margin-top: 8px;
+    font-size: 11px;
+    line-height: 1.2;
+    color: #344054;
+    font-weight: 700;
+  }
+
+  .station-code {
+    display: inline-block;
+    margin-top: 4px;
+    padding: 2px 5px;
+    border-radius: 999px;
+    background: #dff3e5;
+    color: #267349;
+    font-size: 9px;
+    font-weight: bold;
+  }
+
+  .connector {
+    width: 42px;
+    flex: 0 0 42px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+  }
+
+  .connector-line {
+    width: 100%;
+    height: 6px;
+    border-radius: 999px;
+    background: var(--rail);
+  }
+
+  .connector-line.disrupted {
+    background: var(--red);
+  }
+
+  .map-note {
+    margin-top: 10px;
+    font-size: 12px;
+    font-weight: bold;
+  }
+
+  .map-note.normal { color: var(--green-dark); }
+  .map-note.alert { color: var(--red-dark); }
+
+  .service {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 9px 0;
+    border-bottom: 1px solid #eef0f3;
+    font-size: 13px;
+  }
+
+  .service:last-child { border-bottom: none; }
+  .service span:first-child { color: var(--muted); }
+
+  .route-card {
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 14px;
+    margin-top: 10px;
+  }
+
+  .route-card.recommended {
+    border: 2px solid var(--blue);
+    background: #f8fbff;
+  }
+
+  .route-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .route-head h3 {
+    margin: 0;
+    font-size: 16px;
+  }
+
+  .route-tag {
+    font-size: 10px;
+    border-radius: 999px;
+    padding: 5px 8px;
+    background: #eaf1ff;
+    color: var(--blue);
+    font-weight: bold;
+    white-space: nowrap;
+  }
+
+  .route-path {
+    font-size: 12px;
+    line-height: 1.55;
+    color: var(--muted);
+    margin: 9px 0 12px;
+  }
+
+  .route-stats {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 7px;
+  }
+
+  .route-stat {
+    background: #f8fafc;
+    padding: 8px;
+    border-radius: 9px;
+  }
+
+  .route-stat span {
+    display: block;
+    color: var(--muted);
+    font-size: 10px;
+    margin-bottom: 2px;
+  }
+
+  .route-stat strong { font-size: 13px; }
+
+  .late { color: var(--red-dark); }
+  .safe { color: var(--green-dark); }
+  .hidden { display: none !important; }
+
+  .footer-note {
+    margin: 0 16px;
+    font-size: 11px;
+    color: #98a2b3;
+    line-height: 1.5;
+  }
+</style>
+</head>
+
+<body>
+<div class="app">
+
+  <header class="header">
+    <small>SMART COMMUTER COMPANION</small>
+    <h1 id="journeyTitle">Tampines → Raffles Place</h1>
+  </header>
+
+  <div class="controls">
+    <button id="normalBtn" class="active" type="button">Normal Day</button>
+    <button id="disruptionBtn" type="button">Disruption Demo</button>
+  </div>
+
+  <div class="reverse-wrap">
+    <button id="reverseBtn" class="reverse-btn" type="button">
+      ⇄ Reverse: Raffles Place → Tampines
+    </button>
+  </div>
+
+  <section class="card">
+    <div class="status">
+      <div>
+        <div class="section-title">TODAY'S COMMUTE</div>
+        <h2 id="headline">Your commute looks normal</h2>
+      </div>
+      <div id="statusBadge" class="badge normal">ON TRACK</div>
+    </div>
+
+    <div class="summary-grid">
+      <div class="metric"><span>Leave</span><strong>07:40</strong></div>
+      <div class="metric"><span>Expected arrival</span><strong id="topEta">08:34</strong></div>
+      <div class="metric"><span>Deadline</span><strong>08:45</strong></div>
+      <div class="metric"><span>Safety buffer</span><strong id="buffer">+11 min</strong></div>
+    </div>
+
+    <div id="actionBox" class="action" aria-live="polite">
+      No action needed — leave at 07:40 as usual.
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="section-title">COMMUTE MAP</div>
+
+    <div class="map-box">
+      <div class="map-top">
+        <p id="mapTitle" class="map-title">East-West Line: Tampines → Raffles Place</p>
+        <div class="scroll-controls">
+          <button id="scrollLeftBtn" class="scroll-btn" type="button" aria-label="Scroll stations left">←</button>
+          <button id="scrollRightBtn" class="scroll-btn" type="button" aria-label="Scroll stations right">→</button>
+        </div>
+      </div>
+
+      <div class="scroll-hint">
+        Swipe sideways, drag the scrollbar, or use the ← → buttons to view every station.
+      </div>
+
+      <div id="railScroll" class="rail-scroll" tabindex="0" aria-label="Scrollable East-West Line stations">
+        <div id="rail" class="rail"></div>
+      </div>
+
+      <div id="mapStatusNote" class="map-note normal">✓ No disruption on this journey</div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="section-title">SERVICE STATUS</div>
+
+    <div class="service">
+      <span>Disruption</span>
+      <strong id="disruptionText">NIL</strong>
+    </div>
+
+    <div class="service">
+      <span>Crowding</span>
+      <strong id="crowdingText">Moderate</strong>
+    </div>
+
+    <div class="service">
+      <span>Saved journey</span>
+      <strong id="savedJourney">Tampines → Raffles Place</strong>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="section-title">ROUTES</div>
+
+    <div id="route1" class="route-card recommended">
+      <div class="route-head">
+        <h3>Route 1 — Rachel's usual route</h3>
+        <div id="route1Tag" class="route-tag">RECOMMENDED</div>
+      </div>
+
+      <div id="route1Path" class="route-path"></div>
+
+      <div class="route-stats">
+        <div class="route-stat"><span>ETA</span><strong id="r1eta">08:34</strong></div>
+        <div class="route-stat"><span>Delay</span><strong id="r1delay">0 min</strong></div>
+        <div class="route-stat"><span>Deadline</span><strong id="r1deadline" class="safe">11 min early</strong></div>
+        <div class="route-stat"><span>Crowding</span><strong id="r1crowd">Moderate</strong></div>
+      </div>
+    </div>
+
+    <div id="route2" class="route-card hidden">
+      <div class="route-head">
+        <h3>Route 2 — Best alternative</h3>
+        <div class="route-tag">RECOMMENDED</div>
+      </div>
+
+      <div id="route2Path" class="route-path"></div>
+
+      <div class="route-stats">
+        <div class="route-stat"><span>ETA</span><strong>08:39</strong></div>
+        <div class="route-stat"><span>Delay</span><strong>+5 min</strong></div>
+        <div class="route-stat"><span>Deadline</span><strong class="safe">6 min early</strong></div>
+        <div class="route-stat"><span>Crowding</span><strong>Moderate</strong></div>
+      </div>
+    </div>
+
+    <div id="route3" class="route-card hidden">
+      <div class="route-head">
+        <h3>Route 3 — Backup alternative</h3>
+      </div>
+
+      <div id="route3Path" class="route-path"></div>
+
+      <div class="route-stats">
+        <div class="route-stat"><span>ETA</span><strong>08:43</strong></div>
+        <div class="route-stat"><span>Delay</span><strong>+9 min</strong></div>
+        <div class="route-stat"><span>Deadline</span><strong class="safe">2 min early</strong></div>
+        <div class="route-stat"><span>Crowding</span><strong>Low</strong></div>
+      </div>
+    </div>
+  </section>
+
+  <p class="footer-note">
+    Interactive prototype. The Commute Map includes all 13 EWL stations between Tampines and Raffles Place.
+  </p>
+</div>
+
+<script>
+(() => {
+  const stationsForward = [
+    { name: "Tampines", code: "EW2" },
+    { name: "Simei", code: "EW3" },
+    { name: "Tanah Merah", code: "EW4" },
+    { name: "Bedok", code: "EW5" },
+    { name: "Kembangan", code: "EW6" },
+    { name: "Eunos", code: "EW7" },
+    { name: "Paya Lebar", code: "EW8" },
+    { name: "Aljunied", code: "EW9" },
+    { name: "Kallang", code: "EW10" },
+    { name: "Lavender", code: "EW11" },
+    { name: "Bugis", code: "EW12" },
+    { name: "City Hall", code: "EW13" },
+    { name: "Raffles Place", code: "EW14" }
+  ];
+
+  let reversed = false;
+  let disruption = false;
+
+  const disruptionStart = "Tanah Merah";
+  const disruptionEnd = "Aljunied";
+
+  const $ = id => document.getElementById(id);
+
+  const els = {
+    journeyTitle: $("journeyTitle"),
+    mapTitle: $("mapTitle"),
+    rail: $("rail"),
+    railScroll: $("railScroll"),
+    mapStatusNote: $("mapStatusNote"),
+    normalBtn: $("normalBtn"),
+    disruptionBtn: $("disruptionBtn"),
+    reverseBtn: $("reverseBtn"),
+    scrollLeftBtn: $("scrollLeftBtn"),
+    scrollRightBtn: $("scrollRightBtn"),
+    headline: $("headline"),
+    statusBadge: $("statusBadge"),
+    topEta: $("topEta"),
+    buffer: $("buffer"),
+    actionBox: $("actionBox"),
+    disruptionText: $("disruptionText"),
+    crowdingText: $("crowdingText"),
+    savedJourney: $("savedJourney"),
+    route1: $("route1"),
+    route1Tag: $("route1Tag"),
+    route1Path: $("route1Path"),
+    route2: $("route2"),
+    route2Path: $("route2Path"),
+    route3: $("route3"),
+    route3Path: $("route3Path"),
+    r1eta: $("r1eta"),
+    r1delay: $("r1delay"),
+    r1deadline: $("r1deadline"),
+    r1crowd: $("r1crowd")
+  };
+
+  function orderedStations() {
+    return reversed ? [...stationsForward].reverse() : [...stationsForward];
+  }
+
+  function stationIndex(name) {
+    return stationsForward.findIndex(s => s.name === name);
+  }
+
+  function stationAffected(station) {
+    if (!disruption) return false;
+    const i = stationIndex(station.name);
+    const a = stationIndex(disruptionStart);
+    const b = stationIndex(disruptionEnd);
+    return i >= Math.min(a,b) && i <= Math.max(a,b);
+  }
+
+  function connectorAffected(leftStation, rightStation) {
+    if (!disruption) return false;
+
+    const left = stationIndex(leftStation.name);
+    const right = stationIndex(rightStation.name);
+    const a = stationIndex(disruptionStart);
+    const b = stationIndex(disruptionEnd);
+
+    const segLo = Math.min(left,right);
+    const segHi = Math.max(left,right);
+
+    return segLo >= Math.min(a,b) && segHi <= Math.max(a,b);
+  }
+
+  function renderRail() {
+    const stations = orderedStations();
+    els.rail.innerHTML = "";
+
+    stations.forEach((station, index) => {
+      const stationBlock = document.createElement("div");
+      stationBlock.className = "station-block";
+
+      const stationRow = document.createElement("div");
+      stationRow.className = "station-row";
+
+      const dot = document.createElement("div");
+      dot.className = "station-dot" + (stationAffected(station) ? " affected" : "");
+      dot.title = `${station.name} (${station.code})`;
+
+      stationRow.appendChild(dot);
+
+      const name = document.createElement("div");
+      name.className = "station-name";
+      name.textContent = station.name;
+
+      const code = document.createElement("div");
+      code.className = "station-code";
+      code.textContent = station.code;
+
+      stationBlock.appendChild(stationRow);
+      stationBlock.appendChild(name);
+      stationBlock.appendChild(code);
+      els.rail.appendChild(stationBlock);
+
+      if (index < stations.length - 1) {
+        const connector = document.createElement("div");
+        connector.className = "connector";
+
+        const line = document.createElement("div");
+        line.className = "connector-line" +
+          (connectorAffected(station, stations[index + 1]) ? " disrupted" : "");
+
+        connector.appendChild(line);
+        els.rail.appendChild(connector);
+      }
+    });
+
+    requestAnimationFrame(() => {
+      els.railScroll.scrollLeft = reversed
+        ? els.railScroll.scrollWidth - els.railScroll.clientWidth
+        : 0;
+    });
+  }
+
+  function updateDirection() {
+    const from = reversed ? "Raffles Place" : "Tampines";
+    const to = reversed ? "Tampines" : "Raffles Place";
+
+    els.journeyTitle.textContent = `${from} → ${to}`;
+    els.mapTitle.textContent = `East-West Line: ${from} → ${to}`;
+    els.savedJourney.textContent = `${from} → ${to}`;
+
+    els.reverseBtn.textContent = reversed
+      ? "⇄ Reverse: Tampines → Raffles Place"
+      : "⇄ Reverse: Raffles Place → Tampines";
+
+    if (!reversed) {
+      els.route1Path.textContent =
+        "Home → 6 min walk → Tampines MRT → EWL → Raffles Place MRT → 5 min walk → Office";
+      els.route2Path.textContent =
+        "Home → 6 min walk → Tampines DTL → Bugis → EWL → Raffles Place MRT → 5 min walk → Office";
+      els.route3Path.textContent =
+        "Home → 6 min walk → Tampines DTL → Downtown → walk to Office";
+    } else {
+      els.route1Path.textContent =
+        "Office → 5 min walk → Raffles Place MRT → EWL → Tampines MRT → 6 min walk → Home";
+      els.route2Path.textContent =
+        "Office → 5 min walk → Raffles Place MRT → EWL → Bugis → DTL → Tampines → 6 min walk → Home";
+      els.route3Path.textContent =
+        "Office → walk to Downtown → DTL → Tampines → 6 min walk → Home";
+    }
+  }
+
+  function updateScenario() {
+    els.normalBtn.classList.toggle("active", !disruption);
+    els.disruptionBtn.classList.toggle("active", disruption);
+
+    if (!disruption) {
+      els.headline.textContent = "Your commute looks normal";
+      els.statusBadge.textContent = "ON TRACK";
+      els.statusBadge.className = "badge normal";
+      els.topEta.textContent = "08:34";
+      els.buffer.textContent = "+11 min";
+      els.actionBox.textContent = "No action needed — leave at 07:40 as usual.";
+      els.actionBox.className = "action";
+      els.disruptionText.textContent = "NIL";
+      els.crowdingText.textContent = "Moderate";
+
+      els.mapStatusNote.textContent = "✓ No disruption on this journey";
+      els.mapStatusNote.className = "map-note normal";
+
+      els.route1.classList.add("recommended");
+      els.route1Tag.classList.remove("hidden");
+      els.r1eta.textContent = "08:34";
+      els.r1delay.textContent = "0 min";
+      els.r1deadline.textContent = "11 min early";
+      els.r1deadline.className = "safe";
+      els.r1crowd.textContent = "Moderate";
+      els.route2.classList.add("hidden");
+      els.route3.classList.add("hidden");
+    } else {
+      els.headline.textContent = "Action needed";
+      els.statusBadge.textContent = "ACTION NEEDED";
+      els.statusBadge.className = "badge alert";
+      els.topEta.textContent = "08:39";
+      els.buffer.textContent = "+6 min";
+      els.actionBox.textContent =
+        "EWL disruption will make you late — take the alternative route. ETA 08:39.";
+      els.actionBox.className = "action alert";
+      els.disruptionText.textContent = `${disruptionStart} → ${disruptionEnd}`;
+      els.crowdingText.textContent = "High on usual route";
+
+      els.mapStatusNote.textContent =
+        `⚠ Disruption: ${disruptionStart} → ${disruptionEnd}. The affected MRT connecting lines are red.`;
+      els.mapStatusNote.className = "map-note alert";
+
+      els.route1.classList.remove("recommended");
+      els.route1Tag.classList.add("hidden");
+      els.r1eta.textContent = "08:54";
+      els.r1delay.textContent = "+20 min";
+      els.r1deadline.textContent = "9 min late";
+      els.r1deadline.className = "late";
+      els.r1crowd.textContent = "High";
+      els.route2.classList.remove("hidden");
+      els.route3.classList.remove("hidden");
+    }
+
+    renderRail();
+  }
+
+  els.normalBtn.addEventListener("click", () => {
+    disruption = false;
+    updateScenario();
+  });
+
+  els.disruptionBtn.addEventListener("click", () => {
+    disruption = true;
+    updateScenario();
+  });
+
+  els.reverseBtn.addEventListener("click", () => {
+    reversed = !reversed;
+    updateDirection();
+    renderRail();
+  });
+
+  els.scrollLeftBtn.addEventListener("click", () => {
+    els.railScroll.scrollBy({ left: -320, behavior: "smooth" });
+  });
+
+  els.scrollRightBtn.addEventListener("click", () => {
+    els.railScroll.scrollBy({ left: 320, behavior: "smooth" });
+  });
+
+  updateDirection();
+  updateScenario();
+})();
+</script>
+
+</body>
+</html>
