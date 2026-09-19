@@ -1,84 +1,89 @@
-# WayAhead — Smart Commuter Companion
+# Rachel Smart Commute — Frontend + Backend
 
-A mobile-first frontend prototype for a Singapore smart commuter companion.
-The demo follows Rachel's weekday commute from Tampines to Raffles Place and
-shows how the app responds when an EWL disruption affects her trip.
+This version moves the commute decision-making into a Flask backend.
 
-## Features
+## Backend API
 
-- Mobile-first responsive layout
-- OpenStreetMap map using Leaflet
-- Usual and recommended route comparison
-- Demo switch for normal service and an EWL disruption
-- Arrival times, crowding and transfer information
-- Working Today, Saved Journeys and Settings screens
-- Editable commute details and notification panel
-- Configurable 5, 10 or 15-minute alert threshold
-- Preferences saved locally in the browser
-- Interactive route-selection and information controls
-- Clear labels showing that current disruption information is demo data
+### `GET /api/commute?scenario=normal`
+Returns Rachel's normal commute and recommends her usual EWL route.
 
-## Technology used
+### `GET /api/commute?scenario=disruption`
+Returns the demo Tanah Merah → Aljunied disruption, compares three routes,
+checks the 08:45 deadline, and recommends the best safe route.
 
-- HTML
-- CSS
-- JavaScript
-- Leaflet
-- OpenStreetMap
+### `GET /api/commute?scenario=live`
+Uses LTA DataMall if `LTA_ACCOUNT_KEY` is configured. If no key is available,
+the app remains usable and reports that it is using fallback/demo data.
 
-No installation or API key is required for this frontend prototype.
+### `GET /api/backend-status`
+Shows whether the LTA / OneMap environment variables are configured.
 
-## Open the project locally
+### `GET /health`
+Simple health check for Cloud Run.
 
-You can double-click `index.html` to open it in a browser. If the map does not
-load when opened as a file, run a simple local web server instead:
+## What the backend decides
+
+1. Whether Rachel's normal commute is disrupted.
+2. Whether her normal ETA exceeds the 08:45 deadline.
+3. Which route should be recommended.
+4. Whether Rachel should be interrupted.
+5. The one-line action shown in the UI.
+
+Route ranking prioritises:
+1. arriving before 08:45,
+2. earlier ETA,
+3. lower crowding,
+4. fewer transfers.
+
+## Live LTA support
+
+The backend has optional integrations for:
+
+- LTA `TrainServiceAlerts`
+- LTA `PCDRealTime` for EWL station crowding
+
+Do not put your LTA key inside the source code.
+
+Set it in Cloud Run as an environment variable:
 
 ```bash
-python3 -m http.server 5173
+gcloud run services update rachel-commute \
+  --region asia-southeast1 \
+  --set-env-vars LTA_ACCOUNT_KEY="YOUR_KEY"
 ```
 
-Then open <http://localhost:5173>.
+For OneMap, set:
 
-If you use VS Code, the Live Server extension is another easy option.
-
-## Upload it to GitHub
-
-1. Create a new empty GitHub repository.
-2. Extract this ZIP file.
-3. Open the extracted `wayahead-frontend` folder in GitHub Desktop.
-4. Choose **Add an Existing Repository from your Hard Drive**.
-5. If asked, select **Create a Repository** for this folder.
-6. Commit the files and choose **Publish repository**.
-
-The important files should appear at the repository root:
-
-```text
-wayahead-frontend/
-├── index.html
-├── styles.css
-├── app.js
-├── README.md
-├── .env.example
-└── .gitignore
+```bash
+gcloud run services update rachel-commute \
+  --region asia-southeast1 \
+  --set-env-vars ONEMAP_TOKEN="YOUR_TOKEN"
 ```
 
-## Publish with GitHub Pages
+The OneMap token is reserved for the next step: replacing the demo alternative
+routes with routes returned by the OneMap routing API.
 
-After pushing the code:
+## Run locally / Cloud Shell
 
-1. Open the repository on GitHub.
-2. Go to **Settings → Pages**.
-3. Under **Build and deployment**, choose **Deploy from a branch**.
-4. Select the `main` branch and `/ (root)` folder.
-5. Click **Save**.
+```bash
+pip3 install -r requirements.txt
+python3 main.py
+```
 
-GitHub will display the published website URL after deployment finishes.
+Then preview port 8080.
 
-## Current data
+## Deploy to Cloud Run
 
-Route coordinates, timings, weather, disruption and crowding values are demo
-data. Replace them with responses from your backend when the LTA DataMall,
-weather and routing APIs are connected.
+From this folder:
 
-Do not place real API keys in `app.js` or commit them to GitHub. Keep secrets in
-the backend or your deployment platform's secret manager.
+```bash
+gcloud run deploy rachel-commute \
+  --source . \
+  --region asia-southeast1 \
+  --allow-unauthenticated
+```
+
+## Secrets
+
+Never commit API keys, AccountKeys, passwords, or `.env`.
+Only `.env.example` with variable names is included.

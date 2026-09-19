@@ -1,160 +1,844 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#071d2e" />
-  <meta name="description" content="A mobile-first smart commuter companion for Singapore journeys." />
-  <title>WayAhead — Smart commuter companion</title>
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23071d2e'/%3E%3Cpath d='M14 40c9 0 10-17 19-17s10 17 17 17' fill='none' stroke='%23c6ff4a' stroke-width='7' stroke-linecap='round'/%3E%3Ccircle cx='14' cy='40' r='5' fill='white'/%3E%3Ccircle cx='50' cy='40' r='5' fill='white'/%3E%3C/svg%3E" />
-  <link rel="preconnect" href="https://unpkg.com" />
-  <link rel="preconnect" href="https://tile.openstreetmap.org" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIINfQ3ynhHzdLlZtD/CSyoFuk8fAI5g5hM=" crossorigin="" />
-  <link rel="stylesheet" href="styles.css" />
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Rachel's Smart Commute</title>
+
+<style>
+  * { box-sizing: border-box; }
+
+  :root{
+    --navy:#173b73;
+    --bg:#f4f7fb;
+    --text:#1f2937;
+    --muted:#667085;
+    --border:#e5e7eb;
+    --green:#22a06b;
+    --green-dark:#147a42;
+    --green-soft:#e7f7ed;
+    --red:#d92d20;
+    --red-dark:#b42318;
+    --red-soft:#fff0ef;
+    --blue:#2463eb;
+    --rail:#4fa66a;
+  }
+
+  body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+
+  button { font: inherit; }
+
+  .app {
+    max-width: 470px;
+    margin: 0 auto;
+    min-height: 100vh;
+    background: white;
+    padding-bottom: 32px;
+  }
+
+  .header {
+    background: var(--navy);
+    color: white;
+    padding: 22px 18px 18px;
+  }
+
+  .header small {
+    opacity: .82;
+    font-size: 12px;
+  }
+
+  .header h1 {
+    margin: 6px 0 0;
+    font-size: 23px;
+  }
+
+  .controls {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    padding: 14px 16px 0;
+  }
+
+  .controls button,
+  .reverse-btn,
+  .scroll-btn {
+    min-height: 44px;
+    border: none;
+    border-radius: 11px;
+    font-weight: bold;
+    cursor: pointer;
+  }
+
+  .controls button {
+    background: #e8edf5;
+    color: #344054;
+  }
+
+  .controls button.active {
+    background: var(--navy);
+    color: white;
+  }
+
+  .reverse-wrap {
+    padding: 8px 16px 0;
+  }
+
+  .reverse-btn {
+    width: 100%;
+    border: 1px solid #cfd8e6;
+    background: white;
+    color: var(--navy);
+  }
+
+  .card {
+    margin: 14px 16px;
+    padding: 16px;
+    border-radius: 16px;
+    background: white;
+    border: 1px solid var(--border);
+    box-shadow: 0 4px 14px rgba(0,0,0,.05);
+  }
+
+  .status {
+    display: flex;
+    justify-content: space-between;
+    align-items: start;
+    gap: 10px;
+  }
+
+  .status h2 {
+    margin: 0;
+    font-size: 20px;
+  }
+
+  .badge {
+    border-radius: 999px;
+    padding: 6px 10px;
+    font-size: 11px;
+    font-weight: bold;
+    white-space: nowrap;
+  }
+
+  .badge.normal {
+    background: var(--green-soft);
+    color: var(--green-dark);
+  }
+
+  .badge.alert {
+    background: #feeceb;
+    color: var(--red-dark);
+  }
+
+  .summary-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 14px;
+  }
+
+  .metric {
+    background: #f8fafc;
+    border-radius: 12px;
+    padding: 11px;
+  }
+
+  .metric span {
+    display: block;
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 3px;
+  }
+
+  .metric strong { font-size: 16px; }
+
+  .action {
+    margin-top: 12px;
+    padding: 12px;
+    border-radius: 12px;
+    background: var(--green-soft);
+    color: var(--green-dark);
+    font-weight: bold;
+    line-height: 1.4;
+  }
+
+  .action.alert {
+    background: var(--red-soft);
+    color: var(--red-dark);
+  }
+
+  .section-title {
+    font-size: 13px;
+    font-weight: bold;
+    color: #475467;
+    margin-bottom: 10px;
+    letter-spacing: .02em;
+  }
+
+  /* COMMUTE MAP */
+  .map-box {
+    background: #eef3f8;
+    border-radius: 14px;
+    padding: 12px;
+  }
+
+  .map-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .map-title {
+    font-size: 12px;
+    color: var(--muted);
+    margin: 0;
+    flex: 1;
+  }
+
+  .scroll-controls {
+    display: flex;
+    gap: 6px;
+  }
+
+  .scroll-btn {
+    min-width: 42px;
+    height: 42px;
+    background: white;
+    border: 1px solid #cbd5e1;
+    color: var(--navy);
+    font-size: 18px;
+    line-height: 1;
+  }
+
+  .scroll-hint {
+    font-size: 11px;
+    color: #667085;
+    margin: 4px 0 8px;
+  }
+
+  .rail-scroll {
+    width: 100%;
+    overflow-x: scroll !important;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: auto;
+    scrollbar-color: #7f8b9a #d9e1ea;
+    border-radius: 10px;
+    background: white;
+    border: 1px solid #d9e1ea;
+    padding: 16px 8px 12px;
+  }
+
+  .rail-scroll::-webkit-scrollbar {
+    height: 14px;
+  }
+
+  .rail-scroll::-webkit-scrollbar-track {
+    background: #d9e1ea;
+    border-radius: 999px;
+  }
+
+  .rail-scroll::-webkit-scrollbar-thumb {
+    background: #7f8b9a;
+    border-radius: 999px;
+    border: 2px solid #d9e1ea;
+  }
+
+  .rail-scroll::-webkit-scrollbar-thumb:hover {
+    background: #5f6b7a;
+  }
+
+  .rail {
+    display: flex;
+    align-items: flex-start;
+    width: max-content;
+    min-width: 1750px;
+    padding: 4px 0 10px;
+  }
+
+  .station-block {
+    width: 94px;
+    flex: 0 0 94px;
+    text-align: center;
+    position: relative;
+  }
+
+  .station-row {
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .station-dot {
+    width: 19px;
+    height: 19px;
+    border-radius: 50%;
+    background: white;
+    border: 4px solid var(--rail);
+    position: relative;
+    z-index: 3;
+  }
+
+  .station-dot.affected {
+    border-color: var(--red);
+  }
+
+  .station-name {
+    margin-top: 8px;
+    font-size: 11px;
+    line-height: 1.2;
+    color: #344054;
+    font-weight: 700;
+  }
+
+  .station-code {
+    display: inline-block;
+    margin-top: 4px;
+    padding: 2px 5px;
+    border-radius: 999px;
+    background: #dff3e5;
+    color: #267349;
+    font-size: 9px;
+    font-weight: bold;
+  }
+
+  .connector {
+    width: 42px;
+    flex: 0 0 42px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+  }
+
+  .connector-line {
+    width: 100%;
+    height: 6px;
+    border-radius: 999px;
+    background: var(--rail);
+  }
+
+  .connector-line.disrupted {
+    background: var(--red);
+  }
+
+  .map-note {
+    margin-top: 10px;
+    font-size: 12px;
+    font-weight: bold;
+  }
+
+  .map-note.normal { color: var(--green-dark); }
+  .map-note.alert { color: var(--red-dark); }
+
+  .service {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 9px 0;
+    border-bottom: 1px solid #eef0f3;
+    font-size: 13px;
+  }
+
+  .service:last-child { border-bottom: none; }
+  .service span:first-child { color: var(--muted); }
+
+  .route-card {
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 14px;
+    margin-top: 10px;
+  }
+
+  .route-card.recommended {
+    border: 2px solid var(--blue);
+    background: #f8fbff;
+  }
+
+  .route-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .route-head h3 {
+    margin: 0;
+    font-size: 16px;
+  }
+
+  .route-tag {
+    font-size: 10px;
+    border-radius: 999px;
+    padding: 5px 8px;
+    background: #eaf1ff;
+    color: var(--blue);
+    font-weight: bold;
+    white-space: nowrap;
+  }
+
+  .route-path {
+    font-size: 12px;
+    line-height: 1.55;
+    color: var(--muted);
+    margin: 9px 0 12px;
+  }
+
+  .route-stats {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 7px;
+  }
+
+  .route-stat {
+    background: #f8fafc;
+    padding: 8px;
+    border-radius: 9px;
+  }
+
+  .route-stat span {
+    display: block;
+    color: var(--muted);
+    font-size: 10px;
+    margin-bottom: 2px;
+  }
+
+  .route-stat strong { font-size: 13px; }
+
+  .late { color: var(--red-dark); }
+  .safe { color: var(--green-dark); }
+  .hidden { display: none !important; }
+
+  .footer-note {
+    margin: 0 16px;
+    font-size: 11px;
+    color: #98a2b3;
+    line-height: 1.5;
+  }
+</style>
 </head>
+
 <body>
-  <div class="app-shell">
-    <header class="topbar">
-      <button class="brand brand-button" data-view-target="today" aria-label="Go to Today">
-        <span class="brand-mark" aria-hidden="true"><span></span><i></i><b></b></span><span>WayAhead</span>
-      </button>
-      <div class="topbar-actions">
-        <button class="icon-button" id="notificationButton" aria-label="Open notifications" aria-expanded="false">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg>
-          <span class="notification-dot" id="notificationDot" aria-hidden="true"></span>
-        </button>
-        <button class="avatar" data-view-target="settings" aria-label="Open profile and settings">R</button>
-      </div>
-    </header>
+<div class="app">
 
-    <main id="top">
-      <section class="view today-view is-active" id="todayView" data-view="today" aria-labelledby="page-title">
-        <section class="greeting-row">
-          <div><p class="eyebrow">THURSDAY · 07:25</p><h1 id="page-title">Good morning, Rachel.</h1><p class="subtle">Your usual commute needs a small change today.</p></div>
-          <div class="weather-pill" aria-label="Weather: 28 degrees, light rain">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 18a4 4 0 1 1 1.1-7.85A5.5 5.5 0 0 1 18.5 12H19a3 3 0 0 1 0 6H7Z"/><path d="m9 20-1 2m5-2-1 2m5-2-1 2"/></svg><span><strong>28°</strong> Light rain</span>
-          </div>
-        </section>
+  <header class="header">
+    <small>SMART COMMUTER COMPANION</small>
+    <h1 id="journeyTitle">Tampines → Raffles Place</h1>
+  </header>
 
-        <section class="demo-control" aria-label="Demo scenario">
-          <div><span class="demo-label">Simulated data</span><strong id="scenarioLabel">EWL disruption</strong></div>
-          <button class="switch is-on" id="scenarioToggle" role="switch" aria-checked="true" aria-label="Toggle EWL disruption demo"><span></span></button>
-        </section>
-
-        <section class="alert-card" id="alertCard" aria-live="polite">
-          <div class="alert-topline"><span class="status-chip"><span class="pulse"></span> ACTION NEEDED</span><span class="updated">Updated 1 min ago</span></div>
-          <div class="alert-content">
-            <div class="alert-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3 2 21h20L12 3Z"/><path d="M12 9v5m0 3h.01"/></svg></div>
-            <div><h2 id="recommendationTitle">Leave 10 minutes earlier.</h2><p id="recommendationText">Take Bus 23 → DTL. You’ll arrive around <strong>08:37</strong>, before your <span class="deadlineText">08:45</span> deadline.</p></div>
-          </div>
-          <button class="primary-button" id="useRouteButton"><span>Use this route</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button>
-        </section>
-
-        <section class="journey-card" aria-labelledby="journey-heading">
-          <div class="section-heading">
-            <div><p class="eyebrow">YOUR WEEKDAY COMMUTE</p><h2 id="journey-heading"><span class="originText">Tampines</span> <span>→</span> <span class="destinationText">Raffles Place</span></h2></div>
-            <button class="text-button editJourneyButton">Edit</button>
-          </div>
-          <div class="map-wrap">
-            <div id="map" aria-label="Map comparing usual and recommended routes"></div>
-            <div class="map-legend" aria-hidden="true"><span><i class="legend-line recommended"></i> Recommended</span><span><i class="legend-line usual"></i> Usual route</span></div>
-            <div class="map-fallback" id="mapFallback" aria-hidden="true"><span class="fallback-route fallback-usual"></span><span class="fallback-route fallback-alt"></span><span class="fallback-point start">T</span><span class="fallback-point end">R</span></div>
-          </div>
-          <div class="route-list" id="routeList">
-            <article class="route-option selected" id="recommendedRoute">
-              <div class="route-radio" aria-hidden="true"><span></span></div>
-              <div class="route-main">
-                <div class="route-title-row"><h3>Recommended today</h3><span class="saves">Arrive 17 min earlier</span></div>
-                <div class="mode-row" aria-label="Bus 23, Downtown Line, then walk"><span class="mode bus">23</span><i></i><span class="mode dtl">DTL</span><i></i><svg class="walk-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="13" cy="4" r="2"/><path d="m10 22 2-7-3-3 2-5 5 3 3 1m-5 11-2-6 4-3"/></svg></div>
-                <div class="route-meta"><span><strong>52 min</strong> total</span><span>Moderate crowding</span><span>2 transfers</span></div>
-              </div><time datetime="08:37">08:37</time>
-            </article>
-            <article class="route-option disrupted" id="usualRoute">
-              <div class="route-radio" aria-hidden="true"></div>
-              <div class="route-main">
-                <div class="route-title-row"><h3>Your usual route</h3><span class="warning-tag">Disrupted</span></div>
-                <div class="mode-row" aria-label="East West Line, then walk"><span class="mode ewl">EWL</span><i></i><svg class="walk-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="13" cy="4" r="2"/><path d="m10 22 2-7-3-3 2-5 5 3 3 1m-5 11-2-6 4-3"/></svg></div>
-                <div class="route-meta"><span><strong>69 min</strong> estimated</span><span>High crowding</span></div>
-              </div><time datetime="08:54">08:54</time>
-            </article>
-          </div>
-        </section>
-
-        <section class="why-card" id="whyCard">
-          <button class="why-toggle" id="whyToggle" aria-expanded="false" aria-controls="whyDetails"><span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z"/><path d="M12 16v-4m0-4h.01"/></svg>Why am I being rerouted?</span><svg class="chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
-          <div class="why-details" id="whyDetails" hidden><p>Simulated data shows an EWL delay between Tampines and Bugis. Your usual route would miss your arrival target, while the DTL alternative keeps an 8-minute buffer.</p></div>
-        </section>
-      </section>
-
-      <section class="view secondary-view" id="journeysView" data-view="journeys" aria-labelledby="journeys-title">
-        <header class="page-header">
-          <div><p class="eyebrow">PERSONALISED ROUTES</p><h1 id="journeys-title">Saved journeys</h1><p class="subtle">WayAhead checks these journeys before you normally leave.</p></div>
-          <button class="secondary-button" id="addJourneyButton">+ Add journey</button>
-        </header>
-        <article class="saved-journey-card">
-          <div class="saved-journey-top"><span class="journey-icon">W</span><div><span class="small-label">WEEKDAY COMMUTE</span><h2><span class="originText">Tampines</span> → <span class="destinationText">Raffles Place</span></h2></div><span class="active-chip">Active</span></div>
-          <div class="journey-schedule">
-            <div><span>Leave</span><strong class="departureText">07:40</strong></div><div><span>Arrive by</span><strong class="deadlineText">08:45</strong></div><div><span>Days</span><strong>Mon–Fri</strong></div><div><span>Usual route</span><strong>EWL</strong></div>
-          </div>
-          <div class="journey-actions"><button class="outline-button" data-view-target="today">View today</button><button class="text-button editJourneyButton">Edit journey</button></div>
-        </article>
-        <section class="info-banner"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z"/><path d="M12 16v-4m0-4h.01"/></svg><div><strong>Smart checks are simulated for now</strong><p>When the backend is connected, this journey will be checked against live train alerts, crowding, bus arrivals and weather.</p></div></section>
-      </section>
-
-      <section class="view secondary-view" id="settingsView" data-view="settings" aria-labelledby="settings-title">
-        <header class="page-header"><div><p class="eyebrow">YOUR PREFERENCES</p><h1 id="settings-title">Settings</h1><p class="subtle">Choose when WayAhead should interrupt you.</p></div></header>
-        <div class="settings-grid">
-          <section class="settings-card">
-            <div class="settings-heading"><div class="settings-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg></div><div><h2>Travel alerts</h2><p>Control which changes are important enough to notify you.</p></div></div>
-            <label class="setting-row"><span><strong>Proactive notifications</strong><small>Alert me before my normal departure time</small></span><input type="checkbox" id="proactiveToggle" class="native-switch" checked /></label>
-            <label class="setting-row"><span><strong>Crowding alerts</strong><small>Include unusually crowded routes</small></span><input type="checkbox" id="crowdingToggle" class="native-switch" checked /></label>
-            <label class="setting-row"><span><strong>Weather alerts</strong><small>Warn me when weather changes the route</small></span><input type="checkbox" id="weatherToggle" class="native-switch" checked /></label>
-          </section>
-          <section class="settings-card">
-            <div class="settings-heading"><div class="settings-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div><div><h2>Delay threshold</h2><p>Ignore small delays and notify only when it matters.</p></div></div>
-            <fieldset class="threshold-options"><legend>Notify me when the delay is at least</legend>
-              <label><input type="radio" name="threshold" value="5" /><span><strong>5 min</strong><small>More alerts</small></span></label>
-              <label><input type="radio" name="threshold" value="10" checked /><span><strong>10 min</strong><small>Recommended</small></span></label>
-              <label><input type="radio" name="threshold" value="15" /><span><strong>15 min</strong><small>Important delays only</small></span></label>
-            </fieldset>
-          </section>
-          <section class="settings-card account-card"><div class="profile-row"><span class="profile-avatar">R</span><div><h2>Rachel</h2><p>Fixed-schedule commuter</p></div></div><button class="outline-button" id="resetButton">Reset demo preferences</button></section>
-        </div>
-        <p class="save-note" id="saveNote" role="status">Preferences are saved automatically on this device.</p>
-      </section>
-    </main>
-
-    <nav class="bottom-nav" aria-label="Primary navigation">
-      <button class="active" data-view-target="today" aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11 12 3l9 8v10h-6v-6H9v6H3V11Z"/></svg>Today</button>
-      <button data-view-target="journeys"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 17h14M7 17V6h10v11M4 21h16M9 10h6"/></svg>Journeys</button>
-      <button data-view-target="settings"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.82 2.82-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.04 1.56V21h-4v-.08A1.7 1.7 0 0 0 8.96 19.36a1.7 1.7 0 0 0-1.88.34l-.06.06-2.82-2.82.06-.06A1.7 1.7 0 0 0 4.6 15 1.7 1.7 0 0 0 3.08 14H3v-4h.08A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.34-1.88L4.2 7.06l2.82-2.82.06.06A1.7 1.7 0 0 0 8.96 4.64 1.7 1.7 0 0 0 10 3.08V3h4v.08a1.7 1.7 0 0 0 1.04 1.56 1.7 1.7 0 0 0 1.88-.34l.06-.06 2.82 2.82-.06.06A1.7 1.7 0 0 0 19.4 9 1.7 1.7 0 0 0 20.92 10H21v4h-.08A1.7 1.7 0 0 0 19.4 15Z"/></svg>Settings</button>
-    </nav>
+  <div class="controls">
+    <button id="normalBtn" class="active" type="button">Normal Day</button>
+    <button id="disruptionBtn" type="button">Disruption Demo</button>
   </div>
 
-  <aside class="notification-panel" id="notificationPanel" aria-hidden="true" aria-labelledby="notificationTitle">
-    <div class="panel-header"><div><p class="eyebrow">LATEST UPDATE</p><h2 id="notificationTitle">Notifications</h2></div><button class="close-button" id="closeNotifications" aria-label="Close notifications">×</button></div>
-    <article class="notification-item unread"><span class="notification-symbol">!</span><div><strong>EWL disruption affects your commute</strong><p>Leave 10 minutes earlier and take Bus 23 → DTL.</p><time>1 minute ago · Simulated</time></div></article>
-    <article class="notification-item"><span class="notification-symbol weather-symbol">☂</span><div><strong>Light rain near Raffles Place</strong><p>Your recommended route remains on time.</p><time>8 minutes ago · Simulated</time></div></article>
-    <button class="outline-button full-width" id="markReadButton">Mark all as read</button>
-  </aside>
-  <div class="scrim" id="scrim" hidden></div>
+  <div class="reverse-wrap">
+    <button id="reverseBtn" class="reverse-btn" type="button">
+      ⇄ Reverse: Raffles Place → Tampines
+    </button>
+  </div>
 
-  <dialog class="journey-dialog" id="journeyDialog">
-    <form id="journeyForm" method="dialog">
-      <div class="dialog-header"><div><p class="eyebrow">SAVED JOURNEY</p><h2 id="dialogTitle">Edit weekday commute</h2></div><button class="close-button" value="cancel" aria-label="Close form">×</button></div>
-      <div class="form-grid">
-        <label><span>Starting point</span><input id="originInput" name="origin" required maxlength="40" autocomplete="street-address" /></label>
-        <label><span>Destination</span><input id="destinationInput" name="destination" required maxlength="40" /></label>
-        <label><span>Normal departure</span><input id="departureInput" name="departure" type="time" required /></label>
-        <label><span>Must arrive by</span><input id="deadlineInput" name="deadline" type="time" required /></label>
+  <section class="card">
+    <div class="status">
+      <div>
+        <div class="section-title">TODAY'S COMMUTE</div>
+        <h2 id="headline">Your commute looks normal</h2>
       </div>
-      <p class="form-help">The live routing backend can replace the demo route after it is connected.</p>
-      <div class="dialog-actions"><button class="outline-button" value="cancel">Cancel</button><button class="primary-button compact" id="saveJourneyButton" value="default">Save journey</button></div>
-    </form>
-  </dialog>
+      <div id="statusBadge" class="badge normal">ON TRACK</div>
+    </div>
 
-  <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-  <script src="app.js"></script>
+    <div class="summary-grid">
+      <div class="metric"><span>Leave</span><strong>07:40</strong></div>
+      <div class="metric"><span>Expected arrival</span><strong id="topEta">08:34</strong></div>
+      <div class="metric"><span>Deadline</span><strong>08:45</strong></div>
+      <div class="metric"><span>Safety buffer</span><strong id="buffer">+11 min</strong></div>
+    </div>
+
+    <div id="actionBox" class="action" aria-live="polite">
+      No action needed — leave at 07:40 as usual.
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="section-title">COMMUTE MAP</div>
+
+    <div class="map-box">
+      <div class="map-top">
+        <p id="mapTitle" class="map-title">East-West Line: Tampines → Raffles Place</p>
+        <div class="scroll-controls">
+          <button id="scrollLeftBtn" class="scroll-btn" type="button" aria-label="Scroll stations left">←</button>
+          <button id="scrollRightBtn" class="scroll-btn" type="button" aria-label="Scroll stations right">→</button>
+        </div>
+      </div>
+
+      <div class="scroll-hint">
+        Swipe sideways, drag the scrollbar, or use the ← → buttons to view every station.
+      </div>
+
+      <div id="railScroll" class="rail-scroll" tabindex="0" aria-label="Scrollable East-West Line stations">
+        <div id="rail" class="rail"></div>
+      </div>
+
+      <div id="mapStatusNote" class="map-note normal">✓ No disruption on this journey</div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="section-title">SERVICE STATUS</div>
+
+    <div class="service">
+      <span>Disruption</span>
+      <strong id="disruptionText">NIL</strong>
+    </div>
+
+    <div class="service">
+      <span>Crowding</span>
+      <strong id="crowdingText">Moderate</strong>
+    </div>
+
+    <div class="service">
+      <span>Saved journey</span>
+      <strong id="savedJourney">Tampines → Raffles Place</strong>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="section-title">ROUTES</div>
+
+    <div id="route1" class="route-card recommended">
+      <div class="route-head">
+        <h3>Route 1 — Rachel's usual route</h3>
+        <div id="route1Tag" class="route-tag">RECOMMENDED</div>
+      </div>
+
+      <div id="route1Path" class="route-path"></div>
+
+      <div class="route-stats">
+        <div class="route-stat"><span>ETA</span><strong id="r1eta">08:34</strong></div>
+        <div class="route-stat"><span>Delay</span><strong id="r1delay">0 min</strong></div>
+        <div class="route-stat"><span>Deadline</span><strong id="r1deadline" class="safe">11 min early</strong></div>
+        <div class="route-stat"><span>Crowding</span><strong id="r1crowd">Moderate</strong></div>
+      </div>
+    </div>
+
+    <div id="route2" class="route-card hidden">
+      <div class="route-head">
+        <h3>Route 2 — Best alternative</h3>
+        <div class="route-tag">RECOMMENDED</div>
+      </div>
+
+      <div id="route2Path" class="route-path"></div>
+
+      <div class="route-stats">
+        <div class="route-stat"><span>ETA</span><strong id="r2eta">08:39</strong></div>
+        <div class="route-stat"><span>Delay</span><strong id="r2delay">+5 min</strong></div>
+        <div class="route-stat"><span>Deadline</span><strong id="r2deadline" class="safe">6 min early</strong></div>
+        <div class="route-stat"><span>Crowding</span><strong id="r2crowd">Moderate</strong></div>
+      </div>
+    </div>
+
+    <div id="route3" class="route-card hidden">
+      <div class="route-head">
+        <h3>Route 3 — Backup alternative</h3>
+      </div>
+
+      <div id="route3Path" class="route-path"></div>
+
+      <div class="route-stats">
+        <div class="route-stat"><span>ETA</span><strong id="r3eta">08:43</strong></div>
+        <div class="route-stat"><span>Delay</span><strong id="r3delay">+9 min</strong></div>
+        <div class="route-stat"><span>Deadline</span><strong id="r3deadline" class="safe">2 min early</strong></div>
+        <div class="route-stat"><span>Crowding</span><strong id="r3crowd">Low</strong></div>
+      </div>
+    </div>
+  </section>
+
+  <p class="footer-note">
+    Interactive prototype. The Commute Map includes all 13 EWL stations between Tampines and Raffles Place.
+  </p>
+</div>
+
+
+<script>
+(() => {
+  const stationsForward = [
+    { name: "Tampines", code: "EW2" },
+    { name: "Simei", code: "EW3" },
+    { name: "Tanah Merah", code: "EW4" },
+    { name: "Bedok", code: "EW5" },
+    { name: "Kembangan", code: "EW6" },
+    { name: "Eunos", code: "EW7" },
+    { name: "Paya Lebar", code: "EW8" },
+    { name: "Aljunied", code: "EW9" },
+    { name: "Kallang", code: "EW10" },
+    { name: "Lavender", code: "EW11" },
+    { name: "Bugis", code: "EW12" },
+    { name: "City Hall", code: "EW13" },
+    { name: "Raffles Place", code: "EW14" }
+  ];
+
+  let reversed = false;
+  let scenario = "normal";
+  let latestData = null;
+
+  const $ = id => document.getElementById(id);
+
+  const els = {
+    journeyTitle: $("journeyTitle"),
+    mapTitle: $("mapTitle"),
+    rail: $("rail"),
+    railScroll: $("railScroll"),
+    mapStatusNote: $("mapStatusNote"),
+    normalBtn: $("normalBtn"),
+    disruptionBtn: $("disruptionBtn"),
+    reverseBtn: $("reverseBtn"),
+    scrollLeftBtn: $("scrollLeftBtn"),
+    scrollRightBtn: $("scrollRightBtn"),
+    headline: $("headline"),
+    statusBadge: $("statusBadge"),
+    topEta: $("topEta"),
+    buffer: $("buffer"),
+    actionBox: $("actionBox"),
+    disruptionText: $("disruptionText"),
+    crowdingText: $("crowdingText"),
+    savedJourney: $("savedJourney"),
+    route1: $("route1"),
+    route1Tag: $("route1Tag"),
+    route1Path: $("route1Path"),
+    route2: $("route2"),
+    route2Path: $("route2Path"),
+    route3: $("route3"),
+    route3Path: $("route3Path"),
+    r1eta: $("r1eta"),
+    r1delay: $("r1delay"),
+    r1deadline: $("r1deadline"),
+    r1crowd: $("r1crowd"),
+    r2eta: $("r2eta"),
+    r2delay: $("r2delay"),
+    r2deadline: $("r2deadline"),
+    r2crowd: $("r2crowd"),
+    r3eta: $("r3eta"),
+    r3delay: $("r3delay"),
+    r3deadline: $("r3deadline"),
+    r3crowd: $("r3crowd")
+  };
+
+  function orderedStations() {
+    return reversed ? [...stationsForward].reverse() : [...stationsForward];
+  }
+
+  function stationIndex(name) {
+    return stationsForward.findIndex(s => s.name === name);
+  }
+
+  function stationAffected(station) {
+    if (!latestData?.disruption?.active) return false;
+    const a = stationIndex(latestData.disruption.from);
+    const b = stationIndex(latestData.disruption.to);
+    const i = stationIndex(station.name);
+    if (a < 0 || b < 0 || i < 0) return false;
+    return i >= Math.min(a, b) && i <= Math.max(a, b);
+  }
+
+  function connectorAffected(leftStation, rightStation) {
+    if (!latestData?.disruption?.active) return false;
+
+    const left = stationIndex(leftStation.name);
+    const right = stationIndex(rightStation.name);
+    const a = stationIndex(latestData.disruption.from);
+    const b = stationIndex(latestData.disruption.to);
+    if ([left, right, a, b].some(x => x < 0)) return false;
+
+    const segLo = Math.min(left, right);
+    const segHi = Math.max(left, right);
+    return segLo >= Math.min(a, b) && segHi <= Math.max(a, b);
+  }
+
+  function renderRail() {
+    const stations = orderedStations();
+    els.rail.innerHTML = "";
+
+    stations.forEach((station, index) => {
+      const stationBlock = document.createElement("div");
+      stationBlock.className = "station-block";
+
+      const stationRow = document.createElement("div");
+      stationRow.className = "station-row";
+
+      const dot = document.createElement("div");
+      dot.className = "station-dot" + (stationAffected(station) ? " affected" : "");
+      dot.title = `${station.name} (${station.code})`;
+      stationRow.appendChild(dot);
+
+      const name = document.createElement("div");
+      name.className = "station-name";
+      name.textContent = station.name;
+
+      const code = document.createElement("div");
+      code.className = "station-code";
+      code.textContent = station.code;
+
+      stationBlock.appendChild(stationRow);
+      stationBlock.appendChild(name);
+      stationBlock.appendChild(code);
+      els.rail.appendChild(stationBlock);
+
+      if (index < stations.length - 1) {
+        const connector = document.createElement("div");
+        connector.className = "connector";
+
+        const line = document.createElement("div");
+        line.className = "connector-line" +
+          (connectorAffected(station, stations[index + 1]) ? " disrupted" : "");
+
+        connector.appendChild(line);
+        els.rail.appendChild(connector);
+      }
+    });
+
+    requestAnimationFrame(() => {
+      els.railScroll.scrollLeft = reversed
+        ? els.railScroll.scrollWidth - els.railScroll.clientWidth
+        : 0;
+    });
+  }
+
+  function setDirectionText() {
+    const from = reversed ? "Raffles Place" : "Tampines";
+    const to = reversed ? "Tampines" : "Raffles Place";
+    els.journeyTitle.textContent = `${from} → ${to}`;
+    els.mapTitle.textContent = `East-West Line: ${from} → ${to}`;
+    els.savedJourney.textContent = `${from} → ${to}`;
+    els.reverseBtn.textContent = reversed
+      ? "⇄ Reverse: Tampines → Raffles Place"
+      : "⇄ Reverse: Raffles Place → Tampines";
+  }
+
+  function applyRoute(cardNo, route) {
+    if (!route) return;
+
+    const card = els[`route${cardNo}`];
+    const path = els[`route${cardNo}Path`];
+    const eta = els[`r${cardNo}eta`];
+    const delay = els[`r${cardNo}delay`];
+    const deadline = els[`r${cardNo}deadline`];
+    const crowd = els[`r${cardNo}crowd`];
+
+    if (path) path.textContent = reversed ? route.path_reverse : route.path_forward;
+    if (eta) eta.textContent = route.eta;
+    if (delay) delay.textContent = route.delay_min === 0 ? "0 min" : `+${route.delay_min} min`;
+    if (deadline) {
+      deadline.textContent = route.deadline_text;
+      deadline.className = route.safe ? "safe" : "late";
+    }
+    if (crowd) crowd.textContent = route.crowding;
+    if (card) card.classList.remove("hidden");
+  }
+
+  async function loadCommute() {
+    try {
+      const direction = reversed ? "reverse" : "forward";
+      const response = await fetch(`/api/commute?scenario=${encodeURIComponent(scenario)}&direction=${direction}`);
+      if (!response.ok) throw new Error(`API returned ${response.status}`);
+      latestData = await response.json();
+
+      els.normalBtn.classList.toggle("active", scenario === "normal");
+      els.disruptionBtn.classList.toggle("active", scenario === "disruption");
+
+      els.headline.textContent = latestData.headline;
+      els.statusBadge.textContent = latestData.notify ? "ACTION NEEDED" : "ON TRACK";
+      els.statusBadge.className = latestData.notify ? "badge alert" : "badge normal";
+
+      els.topEta.textContent = latestData.recommended.eta;
+      els.buffer.textContent =
+        latestData.recommended.deadline_delta_min >= 0
+          ? `+${latestData.recommended.deadline_delta_min} min`
+          : `${latestData.recommended.deadline_delta_min} min`;
+
+      els.actionBox.textContent = latestData.one_line_action;
+      els.actionBox.className = latestData.notify ? "action alert" : "action";
+
+      els.disruptionText.textContent = latestData.disruption.active
+        ? `${latestData.disruption.from} → ${latestData.disruption.to}`
+        : "NIL";
+
+      els.crowdingText.textContent = latestData.routes[0].crowding;
+
+      if (latestData.disruption.active) {
+        els.mapStatusNote.textContent =
+          `⚠ Disruption: ${latestData.disruption.from} → ${latestData.disruption.to}. Affected lines are red.`;
+        els.mapStatusNote.className = "map-note alert";
+      } else {
+        els.mapStatusNote.textContent = "✓ No disruption on this journey";
+        els.mapStatusNote.className = "map-note normal";
+      }
+
+      els.route1.classList.remove("recommended");
+      els.route1Tag.classList.add("hidden");
+      els.route2.classList.add("hidden");
+      els.route3.classList.add("hidden");
+
+      applyRoute(1, latestData.routes[0]);
+
+      if (latestData.routes.length > 1) applyRoute(2, latestData.routes[1]);
+      if (latestData.routes.length > 2) applyRoute(3, latestData.routes[2]);
+
+      const recommendedIndex = latestData.routes.findIndex(
+        r => r.id === latestData.recommended.id
+      );
+
+      if (recommendedIndex === 0) {
+        els.route1.classList.add("recommended");
+        els.route1Tag.classList.remove("hidden");
+      } else if (recommendedIndex === 1) {
+        els.route2.classList.add("recommended");
+      } else if (recommendedIndex === 2) {
+        els.route3.classList.add("recommended");
+      }
+
+      renderRail();
+    } catch (err) {
+      console.error(err);
+      els.headline.textContent = "Backend unavailable";
+      els.actionBox.textContent =
+        "Could not load commute data from the backend. Check that Cloud Run is running.";
+      els.actionBox.className = "action alert";
+    }
+  }
+
+  els.normalBtn.addEventListener("click", () => {
+    scenario = "normal";
+    loadCommute();
+  });
+
+  els.disruptionBtn.addEventListener("click", () => {
+    scenario = "disruption";
+    loadCommute();
+  });
+
+  els.reverseBtn.addEventListener("click", () => {
+    reversed = !reversed;
+    setDirectionText();
+    loadCommute();
+  });
+
+  els.scrollLeftBtn.addEventListener("click", () => {
+    els.railScroll.scrollBy({ left: -320, behavior: "smooth" });
+  });
+
+  els.scrollRightBtn.addEventListener("click", () => {
+    els.railScroll.scrollBy({ left: 320, behavior: "smooth" });
+  });
+
+  setDirectionText();
+  loadCommute();
+})();
+</script>
+
+
 </body>
 </html>
